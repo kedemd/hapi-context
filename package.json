@@ -1,0 +1,19 @@
+{
+  "name": "hapi-context",
+  "version": "0.0.1",
+  "description": "A strategy based context creation plugin for hapi",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "lab -a code -t 100"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "boom": "^2.7.2",
+    "hoek": "^2.14.0"
+  },
+  "devDependencies": {
+    "code": "1.x.x",
+    "hapi": "^8.8.1",
+    "lab": "5.x.x"
+  }
+}
