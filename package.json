@@ -2,6 +2,10 @@
   "name": "hapi-context",
   "version": "0.0.1",
   "description": "A strategy based context creation plugin for hapi",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kedemd/hapi-context"
+  },
   "main": "lib/index.js",
   "scripts": {
     "test": "lab -a code -t 100"
