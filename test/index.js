@@ -54,6 +54,61 @@ server.route({
         }
     }
 });
+server.route({
+    method: 'GET',
+    path: '/configObject/none',
+    config: {
+        plugins: {
+            context: {}
+        },
+        handler: function (request, reply) {
+            return reply(request.plugins.context);
+        }
+    }
+});
+
+server.route({
+    method: 'GET',
+    path: '/configObject',
+    config: {
+        plugins: {
+            'context' : {
+                strategy: 'valid'
+            }
+        },
+        handler: function (request, reply) {
+            return reply(request.plugins.context.name);
+        }
+    }
+});
+server.route({
+    method: 'GET',
+    path: '/configObject/empty',
+    config: {
+        plugins: {
+            'context' : {
+            }
+        },
+        handler: function (request, reply) {
+            return reply(request.plugins.context.name);
+        }
+    }
+});
+server.route({
+    method: 'GET',
+    path: '/configObject/assign',
+    config: {
+        plugins: {
+            'context' : {
+                assign: 'test',
+                strategy: 'valid'
+            }
+        },
+        handler: function (request, reply) {
+            return reply(request.test.name);
+        }
+    }
+});
 
 server.route({
     method: 'GET',
@@ -238,10 +293,46 @@ describe('HapiContext', function () {
         });
     });
 
-    it('Does not create context missing strategy', function (done) {
+    it('Does not create context', function (done) {
+        server.inject('/configObject/none', function (res) {
+
+            expect(res.statusCode).to.equal(500);
+
+            done();
+        });
+    });
+
+    it('Throw if empty config', function (done) {
         server.inject('/missing', function (res) {
 
             expect(res.statusCode).to.equal(500);
+
+            done();
+        });
+    });
+
+    it('Creates context by object config', function (done) {
+        server.inject('/configObject', function (res) {
+
+            expect(res.statusCode).to.equal(200);
+            expect(res.result).to.equal('valid');
+
+            done();
+        });
+    });
+
+    it('Creates context by object config', function (done) {
+        server.inject('/configObject/empty', function (res) {
+            expect(res.statusCode).to.equal(500);
+
+            done();
+        });
+    });
+
+    it('Creates context by object config', function (done) {
+        server.inject('/configObject/assign', function (res) {
+            expect(res.result).to.equal('valid');
+            expect(res.statusCode).to.equal(200);
 
             done();
         });
