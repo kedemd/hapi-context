@@ -1,6 +1,6 @@
 {
   "name": "hapi-context",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A strategy based context creation plugin for hapi",
   "repository": {
     "type": "git",
