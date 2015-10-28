@@ -29,7 +29,7 @@ server.route({
             'context' : 'valid'
         },
         handler: function (request, reply) {
-            return reply(request.plugins.context.name);
+            return reply(request.plugins.context['valid'].context.name);
         }
     }
 });
@@ -41,7 +41,7 @@ server.route({
             'context' : 'other'
         },
         handler: function (request, reply) {
-            return reply(request.plugins.context);
+            return reply(request.plugins.context['other'].context);
         }
     }
 });
@@ -77,7 +77,7 @@ server.route({
             }
         },
         handler: function (request, reply) {
-            return reply(request.plugins.context.name);
+            return reply(request.plugins.context['valid'].context.name);
         }
     }
 });
@@ -144,7 +144,39 @@ server.route({
             'context' : 'error'
         },
         handler: function (request, reply) {
-            return reply(request.plugins.context);
+            return reply(request.context);
+        }
+    }
+});
+
+server.route({
+    method: 'GET',
+    path: '/bad',
+    config: {
+        plugins: {
+            'context' : 'bad'
+        },
+        handler: function (request, reply) {
+            return reply(request.context);
+        }
+    }
+});
+
+server.route({
+    method: 'GET',
+    path: '/no_assign',
+    config: {
+        plugins: {
+            'context' : {
+                strategy: 'valid',
+                assign : false
+            }
+        },
+        handler: function (request, reply) {
+
+            server.plugins.context.getContext(request, 'valid', function (err, context) {
+                return reply({context: context, assigned: request.context});
+            });
         }
     }
 });
@@ -158,7 +190,6 @@ describe('HapiContext', function () {
             expect(err).to.not.exist();
 
             expect(server.plugins.context).to.exist();
-            expect(server.plugins.context.scheme).to.exist();
             expect(server.plugins.context.strategy).to.exist();
 
             done();
@@ -166,43 +197,10 @@ describe('HapiContext', function () {
 
 
     });
-    it('allows valid scheme', function (done) {
-        expect(function(){
-            server.plugins.context.scheme('valid', function(request, strategy, callback){ strategy.getContext(request, callback); });
-        }).to.not.throw();
-
-        expect(function(){
-            server.plugins.context.scheme('other', function(request, strategy, callback){ return callback(null, 'other'); });
-        }).to.not.throw();
-
-        expect(function(){
-            server.plugins.context.scheme('error', function(request, strategy, callback){ return callback('error'); });
-        }).to.not.throw();
-
-        done();
-    });
-
-    it('rejects invalid scheme', function (done) {
-        expect(function(){
-            server.plugins.context.scheme('invalid', {});
-        }).to.throw(Error);
-
-        expect(function(){
-            server.plugins.context.scheme('', server.plugins['hapi-context'].scheme('valid', function(request, strategy, callback){ strategy.getContext(request, callback); }));
-        }).to.throw(Error);
-
-        expect(function() {
-            server.plugins.context.scheme('valid', function (request, strategy, callback) {
-                strategy.getContext(request, callback);
-            });
-        }).to.throw(Error);
-
-        done();
-    });
 
     it('allows valid strategy', function (done) {
         expect(function(){
-            server.plugins.context.strategy('valid','valid', {
+            server.plugins.context.strategy('valid', {
                 getContext: function(request, callback){
                     return callback(null, { "name": "valid" });
                 }
@@ -210,12 +208,18 @@ describe('HapiContext', function () {
         }).to.not.throw();
 
         expect(function(){
-            server.plugins.context.strategy('other','other', {
+            server.plugins.context.strategy('error', {
+                getContext: function(request, callback){
+                    throw new Error('example error on context creation');
+                }
             })
         }).to.not.throw();
 
         expect(function(){
-            server.plugins.context.strategy('error','error', {
+            server.plugins.context.strategy('bad', {
+                getContext: function(request, callback){
+                    return callback('Failed to create context');
+                }
             })
         }).to.not.throw();
 
@@ -223,31 +227,6 @@ describe('HapiContext', function () {
     });
 
     it('rejects invalid strategy', function (done) {
-        expect(function(){
-            server.plugins.context.strategy('','valid', {
-                getContext: function(request, callback){
-                    return callback(null, { "name": "no name" });
-                }
-            })
-        }).to.throw();
-
-        expect(function(){
-            // No scheme
-            server.plugins.context.strategy('noScheme','', {
-                getContext: function(request, callback){
-                    return callback(null, { "name": "no name" });
-                }
-            })
-        }).to.throw();
-
-        expect(function(){
-            // No scheme
-            server.plugins.context.strategy('noScheme','test', {
-                getContext: function(request, callback){
-                    return callback(null, { "name": "no name" });
-                }
-            })
-        }).to.throw();
 
         expect(function(){
             // Already exist
@@ -272,14 +251,33 @@ describe('HapiContext', function () {
         });
     });
 
-    it('Creates context', function (done) {
-        server.inject('/other', function (res) {
+    it('Creates context but dont assign', function (done) {
+        server.inject('/no_assign', function (res) {
 
             expect(res.statusCode).to.equal(200);
             expect(res.result).to.exist();
-            expect(res.result).to.equal('other');
+            expect(res.result.context).to.exist();
+            expect(res.result.assigned).to.not.exist();
 
             done();
+        });
+    });
+
+    it('Creates same context instance', function (done) {
+
+        var fakeRequest = { id: 123, plugins: { context : { } } };
+            server.plugins.context.getContext(fakeRequest, 'valid', function(err,context){
+            expect(context).to.exist();
+
+            context.test = true;
+
+            server.plugins.context.getContext(fakeRequest, 'valid', function(err,newContext){
+                expect(context).to.exist();
+                expect(context).to.equal(newContext);
+                expect(newContext.test).to.equal(true);
+
+                done();
+            });
         });
     });
 
@@ -340,6 +338,15 @@ describe('HapiContext', function () {
 
     it('Error', function (done) {
         server.inject('/error', function (res) {
+
+            expect(res.statusCode).to.equal(500);
+
+            done();
+        });
+    });
+
+    it('handles failed context', function (done) {
+        server.inject('/bad', function (res) {
 
             expect(res.statusCode).to.equal(500);
 
